@@ -1,0 +1,47 @@
+{
+    "name": "marketforce-info/azure-translator",
+    "description": "Azure Translator taking ICU message format into account",
+    "keywords": ["azure", "translator", "icu", "messageformat"],
+    "authors": [
+        {
+            "name": "Market Force Information",
+            "homepage": "https://github.com/marketforce-info"
+        }
+    ],
+    "homepage": "https://github.com/marketforce-info/azure-translator",
+    "support": {
+        "issues": "https://github.com/marketforce-info/azure-translator/issues?state=open",
+        "source": "https://github.com/marketforce-info/azure-translator"
+    },
+    "type": "library",
+    "minimum-stability": "stable",
+    "license": "MIT",
+    "config": {
+        "sort-packages": true
+    },
+    "require": {
+        "php": "^8.1",
+        "ext-json": "*",
+        "ext-mbstring": "*",
+        "psr/http-client": "^1.0"
+    },
+    "require-dev": {
+        "guzzlehttp/psr7": "^2.0",
+        "php-http/mock-client": "^1.0",
+        "phpunit/phpunit": "^9"
+    },
+    "suggest": {
+        "marketforce-info/message-format-parser": "To parse ICU message format strings",
+        "guzzlehttp/guzzle": "HTTP client implementation"
+    },
+    "autoload": {
+        "psr-4": {
+            "MarketforceInfo\\AzureTranslator\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "MarketforceInfo\\AzureTranslator\\Tests\\": "tests/"
+        }
+    }
+}
