@@ -1,60 +1,67 @@
 <?php
 
-use Http\Mock\Client as HttpClient;
+namespace MarketforceInfo\AzureTranslator\Tests\Unit;
+
+use MarketforceInfo\AzureTranslator\Exceptions\InvalidArgumentException;
 use MarketforceInfo\AzureTranslator\Translator;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Client\ClientExceptionInterface;
 
 /**
  * @covers \MarketforceInfo\AzureTranslator\Translator
  */
 class TranslatorTest extends TestCase
 {
-    private HttpClient $client;
+    private Translator\Client|MockObject $client;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->client = new HttpClient();
+
+        $this->client = $this->createMock(Translator\Client::class);
     }
 
-    public function testDoesTranslation()
+    public function testTranslates()
     {
-        $translations = [
-            ['text' => 'Bonjour', 'to' => 'fr'],
+        $expected = [
+            ['text' => 'Bonjour', 'to' => 'fr', 'clientTraceId' => '1234567890', 'state' => []],
         ];
-        $this->clientRespondsWith($translations);
-        $translator = new Translator($this->client, ['fr'], function ($message, $language, $context) use ($translations) {
-            $this->assertEquals($translations[0]['text'], $message);
-            $this->assertEquals('fr', $language);
-            var_dump($message, $language, $context); die;
+
+        $this->client
+            ->expects($this->once())
+            ->method('translate')
+            ->willReturnCallback(fn () => yield from $expected);
+
+        $translator = new Translator($this->client, function (Translator\Translation $translation) use ($expected) {
+            $this->assertEquals($expected[0]['text'], $translation->message);
+            $this->assertSame(Translator\Language::french, $translation->language);
         });
-        $translator->session(fn () => $translator->translate('Hello'));
+        $translator->begin(fn (Translator\Delegate $translator) => $translator->translate('Hello'));
     }
 
-    private function clientRespondsWith(array $translations): void
+    public function testOnHttpClientError()
     {
-        $response = $this->createMock(ResponseInterface::class);
-        $this->client->addResponse($response);
-        $response
+        $this->expectException(ClientExceptionInterface::class);
+
+        $this->client
             ->expects($this->once())
-            ->method('getBody')
-            ->willReturn(GuzzleHttp\Psr7\Utils::streamFor(json_encode([
-                'translations' => $translations,
-            ], JSON_THROW_ON_ERROR)));
-//
-//
-//        $response = $this->createMock(ResponseInterface::class);
-//        $response
-//            ->expects($this->once())
-//            ->method('getBody')
-//            ->willReturn(json_encode([
-//                'translations' => $translations,
-//            ], JSON_THROW_ON_ERROR));
-//
-//        $this->client
-//            ->expects($this->once())
-//            ->method('sendRequest')
-//            ->willReturn($response);
+            ->method('translate')
+            ->willThrowException($this->createMock(ClientExceptionInterface::class));
+
+        $translator = new Translator($this->client, function (Translator\Translation $translation) {});
+        $translator->begin(fn (Translator\Delegate $translator) => $translator->translate('Hello'));
+    }
+
+    public function testInvalidCharacterLimit()
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->client->expects($this->never())->method('translate');
+
+        $expectedLimit = 10;
+        $config = ['characterLimit' => $expectedLimit];
+        $translator = new Translator($this->client, function (Translator\Translation $translation) {}, config: $config);
+        $translator->begin(fn (Translator\Delegate $translator) =>
+            $translator->translate(str_pad('', $expectedLimit + 1, 'a')));
     }
 }

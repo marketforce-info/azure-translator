@@ -1,6 +1,9 @@
 <?php
+declare(strict_types=1);
 
-namespace MarketforceInfo\AzureTranslator\Config;
+namespace MarketforceInfo\AzureTranslator\Translator;
+
+use MarketforceInfo\AzureTranslator\Exceptions\InvalidArgumentException;
 
 enum Language: string
 {
@@ -114,20 +117,46 @@ enum Language: string
     case yucatecMaya = 'yua';
     case zulu = 'zu';
 
-    public static function has(array|Language $language): bool
+    /**
+     * @param array<int, Language> $languages
+     * @param Language $exclude
+     * @return void
+     */
+    public static function verify(array $languages, Language $exclude): void
     {
-        if ($language instanceof self) {
-            return in_array($language, self::cases(), true);
+        if (empty($languages)) {
+            throw new InvalidArgumentException('To languages cannot be empty');
         }
-
-        if (empty($language)) {
-            return false;
+        try {
+            $unique = array_unique(array_map(static fn(Language $language) => $language->value, $languages));
+        } catch (\TypeError) {
+            throw new InvalidArgumentException('List of languages must be an array of Language objects');
         }
+        if (count($unique) !== count($languages)) {
+            throw new InvalidArgumentException('List of languages must be unique');
+        }
+        if (in_array($exclude->value, $unique, true)) {
+            throw new InvalidArgumentException("List of languages cannot contain '{$exclude->value}'");
+        }
+    }
 
-        return empty(array_udiff(
-            $language,
-            self::cases(),
-            static fn (Language $a, Language $b) => strcasecmp($a->value, $b->value)
-        ));
+    /**
+     * @param array<int, Language> $languages
+     * @return string
+     */
+    public static function asQueryParam(array $languages): string
+    {
+        return implode(
+            '&',
+            self::toValues($languages, static fn(string $language) => 'to=' . urlencode($language))
+        );
+    }
+
+    public static function toValues(array $languages, \Closure $transform = null): array
+    {
+        if (!$transform) {
+            $transform = static fn(string $language) => $language;
+        }
+        return array_map(static fn(Language $language) => $transform($language->value), $languages);
     }
 }

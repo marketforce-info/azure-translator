@@ -1,11 +1,11 @@
 <?php
 declare(strict_types=1);
 
-namespace MarketforceInfo\AzureTranslator\MessageFormat;
+namespace MarketforceInfo\AzureTranslator\MessageFormatter;
 
 use MarketforceInfo\AzureTranslator\Exceptions\InvalidArgumentException;
 
-class BasicFormatter implements MessageFormat
+class BasicFormatter implements MessageFormatter
 {
     public function __construct(
         private readonly string $startChar = '{',

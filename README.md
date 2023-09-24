@@ -20,7 +20,7 @@ $ composer require marketforce-info/azure-translator
 ### Requirements
 
 * Access to Azure authentication details. Supports subscription key and authorization token mechanisms.
-*
+* Depends on a concrete implementation of psr/http-client
 
 ## Usage
 
@@ -51,7 +51,7 @@ The formatter will substitute the variables, so they won't be translated and the
 message.
 
 ```php
-    use \MarketforceInfo\AzureTranslator\MessageFormat\BasicFormatter;
+    use \MarketforceInfo\AzureTranslator\MessageFormatter\BasicFormatter;
     $translator->setMessageFormatter(new BasicFormatter());
 ```
 
@@ -71,7 +71,7 @@ $ composer require marketforce-info/message-format-parser
 #### Usage
 
 ```php
-    use \MarketforceInfo\AzureTranslator\MessageFormat\IcuFormatter;
+    use \MarketforceInfo\AzureTranslator\MessageFormatter\IcuFormatter;
     $translator->setMessageFormatter(new IcuFormatter());
 ```
 
@@ -120,6 +120,29 @@ static function (string $message, Language $language, Context $context) use ($db
 ```
 
 ### Tracing Requests
+
+includign reusing original generate function
+
+### Handling Profanity
+
+Azure has three options for handling profanity. None, deleted or marked with asterisks or tags. The component allows
+this to be specified. By default, no profanity handling will be enabled. It allows for a callback to customise the way
+profane phrases are displayed.
+
+#### Methods available
+
+```php
+$builder->withoutProfanityHandling();
+$builder->withProfanityDeleted();
+$builder->withProfanityMarked(); // words replaced with *
+$builder->withProfanityMarked(static function (string $phrase) {
+    return '<span class="profanity">' . str_pad('', mb_strlen($phrase), 'x') . '</span>';
+});
+```
+
+## Custom Message Format
+
+Erm...
 
 ## Contributions
 

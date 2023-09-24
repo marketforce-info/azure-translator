@@ -1,19 +1,19 @@
 <?php
 
-namespace MarketforceInfo\AzureTranslator\Tests\Unit\MessageFormat;
+namespace MarketforceInfo\AzureTranslator\Tests\Unit\MessageFormatter;
 
-use MarketforceInfo\AzureTranslator\MessageFormat\BasicFormatter;
-use MarketforceInfo\AzureTranslator\MessageFormat\MessageFormat;
+use MarketforceInfo\AzureTranslator\MessageFormatter\BasicFormatter;
+use MarketforceInfo\AzureTranslator\MessageFormatter\MessageFormatter;
 use PHPUnit\Framework\TestCase;
 
 /**
- * @covers \MarketforceInfo\AzureTranslator\MessageFormat\BasicFormatter
+ * @covers \MarketforceInfo\AzureTranslator\MessageFormatter\BasicFormatter
  */
 class BasicFormatterTest extends TestCase
 {
     public function testImplementsInterface()
     {
-        $this->assertInstanceOf(MessageFormat::class, new BasicFormatter());
+        $this->assertInstanceOf(MessageFormatter::class, new BasicFormatter());
     }
 
     public function testToAzureNoSyntax()

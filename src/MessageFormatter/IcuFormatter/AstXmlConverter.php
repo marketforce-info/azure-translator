@@ -1,7 +1,9 @@
 <?php
+declare(strict_types=1);
 
-namespace MarketforceInfo\AzureTranslator\MessageFormat\IcuFormatter;
-use MarketforceInfo\AzureTranslator\MessageFormat\DOMDocument;
+namespace MarketforceInfo\AzureTranslator\MessageFormatter\IcuFormatter;
+
+use MarketforceInfo\AzureTranslator\MessageFormatter\DOMDocument;
 
 class AstXmlConverter
 {
