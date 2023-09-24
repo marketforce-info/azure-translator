@@ -94,20 +94,20 @@ class MessagesTest extends TestCase
         $messages->validate(str_pad('', 101, 'a'));
     }
 
-    public function testRequireProcessingByCharacterLimit()
+    public function testCanAcceptByCharacterLimit()
     {
         $messages = new Messages(messageLimit: 1000, characterLimit: 100);
-        $this->assertFalse($messages->canAccept($initial = str_pad('', 99, 'a')));
+        $this->assertTrue($messages->canAccept($initial = str_pad('', 99, 'a')));
         $messages->add($initial);
-        $this->assertTrue($messages->canAccept(str_pad('', 2, 'a')));
+        $this->assertFalse($messages->canAccept(str_pad('', 2, 'a')));
     }
 
-    public function testRequireProcessingByMessageLimit()
+    public function testCanAcceptByMessageLimit()
     {
         $messages = new Messages(messageLimit: 1, characterLimit: 1000);
-        $this->assertFalse($messages->canAccept($initial = str_pad('', 100, 'a')));
+        $this->assertTrue($messages->canAccept($initial = str_pad('', 100, 'a')));
         $messages->add($initial);
-        $this->assertTrue($messages->canAccept(str_pad('', 100, 'a')));
+        $this->assertFalse($messages->canAccept(str_pad('', 100, 'a')));
     }
 
     public function testClear()

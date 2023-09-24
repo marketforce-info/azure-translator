@@ -6,14 +6,11 @@ use MarketforceInfo\AzureTranslator\Tests\TranslateResponse;
 use MarketforceInfo\AzureTranslator\Translator\Client;
 use MarketforceInfo\AzureTranslator\Translator\Language;
 use MarketforceInfo\AzureTranslator\Translator\Messages;
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Client\RequestExceptionInterface;
 use Psr\Http\Message\RequestInterface;
-use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
-use Psr\Http\Message\StreamInterface;
 
 /**
  * @covers \MarketforceInfo\AzureTranslator\Translator\Client
@@ -88,7 +85,7 @@ class ClientTest extends TestCase
      * 429, 500, 503 retry - with backoff, possible different config by code
      */
 
-    public function testFailureForInvalidRequest()
+    public function testInvalidRequest()
     {
         $this->expectException(RequestExceptionInterface::class);
         $this->httpClient->expects($this->once())
@@ -98,50 +95,6 @@ class ClientTest extends TestCase
         $client = new Client($this->httpClient, $this->baseRequest, $this->streamFactory);
         foreach ($client->translate($this->messages([['Foo']])) as $translation) {
         }
-    }
-
-    public function testFailureForUnauthenticatedWithSubscriptionKey()
-    {
-        // raises exception
-    }
-
-    public function testFailureForUnauthenticatedWithToken()
-    {
-        // re-authenticate
-    }
-
-    public function testFailureForInsufficientScope()
-    {
-        // raises exception
-    }
-
-    public function testFailureForCustomCategory()
-    {
-        // raises exception
-    }
-
-    public function testFailureRequiringRetryAndSuccess()
-    {
-        // 429, 500, 503 retry
-    }
-
-    public function testFailureRequiringRetryAndFailure()
-    {
-        // 429, 500, 503 retry
-    }
-
-    private function response(mixed $body, int $status = 200): ResponseInterface|MockObject
-    {
-        $response = $this->createMock(ResponseInterface::class);
-        $response->method('getStatusCode')->willReturn($status);
-        $stream = $this->createMock(StreamInterface::class);
-        if (is_array($body)) {
-            $stream->method('__toString')->willReturn(json_encode($body, JSON_THROW_ON_ERROR));
-        } else {
-            $stream->method('__toString')->willReturn((string)$body);
-        }
-        $response->method('getBody')->willReturn($stream);
-        return $response;
     }
 
     private function messages(array $data): Messages

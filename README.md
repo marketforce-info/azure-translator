@@ -28,6 +28,7 @@ use \MarketforceInfo\AzureTranslator\Builder;
 use \MarketforceInfo\AzureTranslator\Translator\Delegate;
 use \MarketforceInfo\AzureTranslator\Translator\Language;
 use \MarketforceInfo\AzureTranslator\Translator\Translation;
+
 $translator = Builder::createBasic(
     '<subscription-key>',
     [Language::french, Language::italian],
@@ -93,7 +94,7 @@ contains four properties:
 
 `$traceId` is a trace ID used to track requests (see below for more information).
 
-`$state` is an array that was optionally passed as at the point of the translation request.
+`$state` is an array of user specified data specific to the original untranslated message.
 
 The state is something that can be optionally set at the point of request (`translate`).
 
@@ -103,7 +104,7 @@ foreach ($messages as $messageId => $message) {
 }
 ```
 
-Then later, in the `onTranslate` callback.
+Then in the `onTranslate` callback.
 
 ```php
 static function (Translation $translation) use ($db) {
@@ -119,6 +120,34 @@ static function (Translation $translation) use ($db) {
 ```
 
 ## Features
+
+### HTTP Client
+
+Specifying a HTTP Client can be done in a number of ways.
+
+```php
+$builder->withClient(\Psr\Http\Client\ClientInterface::class)
+    ->withRequestFactory()
+    ->withStreamFactory();
+```
+
+#### Providers
+
+- [HTTP Client](https://packagist.org/providers/psr/http-client-implementation)
+- [HTTP Message](https://packagist.org/providers/psr/http-message-implementation)
+- [HTTP Factory](https://packagist.org/providers/psr/http-factory-implementation)
+
+### Authentication
+
+There are two methods of specifying a authentication token.
+
+```php
+$builder->withSubscriptionKey('<subscription-key>');
+// or
+$builder->withBearerToken('<bearer-token>');
+```
+
+Anything more complicated should be handled through plugins/middleware in the HTTP Client.
 
 ### Message Format
 

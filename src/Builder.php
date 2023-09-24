@@ -3,14 +3,11 @@ declare(strict_types=1);
 
 namespace MarketforceInfo\AzureTranslator;
 
-use Http\Discovery\Psr17FactoryDiscovery;
-use Http\Discovery\Psr18Client;
-use Http\Discovery\Psr18ClientDiscovery;
+use MarketforceInfo\AzureTranslator\Exceptions\RuntimeException;
 use MarketforceInfo\AzureTranslator\MessageFormatter\BasicFormatter;
 use MarketforceInfo\AzureTranslator\MessageFormatter\MessageFormatter;
 use MarketforceInfo\AzureTranslator\Translator\Client;
 use MarketforceInfo\AzureTranslator\Translator\Language;
-use Psr\Container\ContainerInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\RequestInterface;
@@ -18,19 +15,20 @@ use Psr\Http\Message\StreamFactoryInterface;
 
 class Builder
 {
-    private string $baseUrl;
+    private string $baseUrl = Client::BASE_URL_GLOBAL;
     private ClientInterface $client;
     private RequestFactoryInterface $requestFactory;
     private StreamFactoryInterface $streamFactory;
-    private string $subscriptionRegion;
+    private array|null $authentication;
     private Language $fromLanguage = Language::english;
     private array $toLanguages;
-    private array|null $authentication;
+    private string $subscriptionRegion;
     private MessageFormatter $formatter;
     /** @var callable */
     private $translateCallback;
     /** @var callable */
     private $traceIdCallback;
+    private array $config = [];
 
     /**
      * Simplest way to create a translator.
@@ -39,7 +37,7 @@ class Builder
     {
         return (new self())
             ->withSubscriptionKey($subscriptionKey)
-            ->withLanguagesTo($languages)
+            ->withLanguages($languages)
             ->withTranslateCallback($translateCallback)
             ->create();
     }
@@ -59,62 +57,55 @@ class Builder
         }
         return (new self())
             ->withSubscriptionKey($subscriptionKey)
-            ->withLanguagesTo($languages)
+            ->withLanguages($languages)
             ->withTranslateCallback($translateCallback)
             ->withMessageFormatter($formatter)
             ->create();
     }
 
-    public function __construct()
+    /**
+     * Set the base URL to use. By default, this is the global endpoint.
+     *
+     * Typical values are:
+     * - https://api.cognitive.microsofttranslator.com/ default
+     * - https://api-nam.cognitive.microsofttranslator.com/
+     * - https://api-eur.cognitive.microsofttranslator.com/
+     * - https://api-apc.cognitive.microsofttranslator.com/
+     *
+     * @see Client::BASE_URL_* constants
+     */
+    public function withBaseUrl(string $baseUrl): self
     {
-        $this->baseUrl = Client::BASE_URL_GLOBAL;
-        $this->fromLanguage = Language::english;
+        $this->baseUrl = $baseUrl;
+        return $this;
     }
 
     /**
-     * Use a PSR-11 container to resolve dependencies.
+     * Set the client, request factory and stream factory to use.
      */
-    public function useContainer(ContainerInterface $container): self
-    {
-        return $this->withClient($container->get(ClientInterface::class))
-            ->withRequestFactory($container->get(RequestFactoryInterface::class))
-            ->withStreamFactory($container->get(StreamFactoryInterface::class));
-    }
-
-    /**
-     * Use PSR-18 discovery to find the client, request factory and stream factory implementations.
-     */
-    public function useAutoDiscovery(): self
-    {
-        return $this->withClient(Psr18ClientDiscovery::find())
-            ->withRequestFactory(Psr17FactoryDiscovery::findRequestFactory())
-            ->withStreamFactory(Psr17FactoryDiscovery::findStreamFactory());
-    }
-
-    /**
-     * Set the client to use.
-     */
-    public function withClient(ClientInterface $client): self
-    {
+    public function withHttp(
+        ClientInterface $client,
+        RequestFactoryInterface $requestFactory,
+        StreamFactoryInterface $streamFactory
+    ): self {
         $this->client = $client;
-        return $this;
-    }
-
-    /**
-     * Set the request factory to use.
-     */
-    public function withRequestFactory(RequestFactoryInterface $requestFactory): self
-    {
         $this->requestFactory = $requestFactory;
+        $this->streamFactory = $streamFactory;
         return $this;
     }
 
     /**
-     * Set the stream factory to use.
+     * Set the language to translate from. By default, this is English.
+     *
+     * @param array<int, Language> $to
+     * @param Language $from
+     * @return $this
      */
-    public function withStreamFactory(StreamFactoryInterface $streamFactory): self
+    public function withLanguages(array $to, Language $from = Language::english): self
     {
-        $this->streamFactory = $streamFactory;
+        Language::verify($to, $from);
+        $this->toLanguages = $to;
+        $this->fromLanguage = $from;
         return $this;
     }
 
@@ -142,38 +133,6 @@ class Builder
     public function withSubscriptionRegion(string $value): self
     {
         $this->subscriptionRegion = $value;
-        return $this;
-    }
-
-    /**
-     * Set the base URL to use. By default, this is the global endpoint.
-     *
-     * Typical values are:
-     * - https://api.cognitive.microsofttranslator.com/
-     * - https://api-nam.cognitive.microsofttranslator.com/
-     * - https://api-eur.cognitive.microsofttranslator.com/
-     * - https://api-apc.cognitive.microsofttranslator.com/
-     *
-     * @see Client::BASE_URL_* constants
-     */
-    public function withBaseUrl(string $baseUrl): self
-    {
-        $this->baseUrl = $baseUrl;
-        return $this;
-    }
-
-    /**
-     * Set the language to translate from. By default, this is English.
-     *
-     * @param array<int, Language> $to
-     * @param Language $from
-     * @return $this
-     */
-    public function withLanguages(array $to, Language $from = Language::english): self
-    {
-        Language::verify($to, $from);
-        $this->toLanguages = $to;
-        $this->fromLanguage = $from;
         return $this;
     }
 
@@ -256,26 +215,25 @@ class Builder
      */
     public function create(): Translator
     {
-        if (isset($this->formatter)) {
-            $config['message_formatter'] = $this->formatter;
-        }
+        $this->verifyRequired();
 
         return new Translator(
             new Client(
-                $this->client ?? new Psr18Client(),
+                $this->client,
                 $this->baseRequest(),
-                new Psr17StreamFactory(),
-                $config
+                $this->streamFactory,
+                $this->traceIdCallback ?? null
             ),
-            $this->translateCallback
+            $this->translateCallback,
+            $this->formatter ?? null
         );
     }
 
     private function baseRequest(): RequestInterface
     {
-        $request = $this->requestFactory->createRequest('GET', $this->baseUrl)
+        $request = $this->requestFactory
+            ->createRequest('GET', $this->baseUrl)
             ->withHeader('Content-Type', 'application/json');
-        $uri = $request->getUri();
 
         $params = http_build_query([
             'api-version' => '3.0',
@@ -283,6 +241,7 @@ class Builder
             'textType' => 'html'
         ]);
 
+        $uri = $request->getUri();
         $request = $request->withUri(
             $uri->withScheme('https')
                 ->withPath('/translate')
@@ -290,8 +249,7 @@ class Builder
         );
 
         if (isset($this->authentication)) {
-            [$header, $value] = $this->authentication;
-            $request = $request->withHeader($header, $value);
+            $request = $request->withHeader(...$this->authentication);
         }
         if (isset($this->subscriptionRegion)) {
             $request = $request->withHeader('Ocp-Apim-Subscription-Region', $this->subscriptionRegion);
@@ -301,5 +259,24 @@ class Builder
         }
 
         return $request;
+    }
+
+    private function verifyRequired(): void
+    {
+        if (!isset($this->client)) {
+            throw new RuntimeException('Client must be set.');
+        }
+        if (!isset($this->requestFactory)) {
+            throw new RuntimeException('Request factory must be set.');
+        }
+        if (!isset($this->streamFactory)) {
+            throw new RuntimeException('Stream factory must be set.');
+        }
+        if (!isset($this->toLanguages)) {
+            throw new RuntimeException('Languages must be set.');
+        }
+        if (!isset($this->translateCallback)) {
+            throw new RuntimeException('Translate callback must be set.');
+        }
     }
 }
