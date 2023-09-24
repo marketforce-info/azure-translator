@@ -10,13 +10,13 @@ formatted message.
 
 ---
 
-### Installation
+## Installation
 
 ```bash
 $ composer require marketforce-info/azure-translator
 ```
 
-### Requirements
+## Requirements
 
 * Access to Azure authentication details. Supports subscription key and authorization token mechanisms.
 * Depends on a concrete implementation of psr/http-client
@@ -69,72 +69,31 @@ $translator = (new Builder())
     ->create();
 ```
 
-## Features
+### Translate Request
 
-### Message Format
-
-By default, there is no message formatting. The following outlines alternatives to allow for different translation
-behaviours.
-
-#### Basic
-
-Allows for basic syntax substitution in messages. For example
-
-```text
-Welcome {name} to the monthly newsletter from {company}
-```
-
-The formatter will substitute the variables, so they won't be translated and then replace them in the final translated
-message.
+Batching of the requested messages is handled automatically. The ability to pass messages to be translated is done via
+the `Delegate` class.
 
 ```php
-    use \MarketforceInfo\AzureTranslator\MessageFormatter\BasicFormatter;
-    $builder->withMessageFormatter(new BasicFormatter());
+$translator->begin(static function (Delegate $translator) use ($untranslatedMessages) {
+    foreach ($untranslatedMessages as $message) {
+        $translator->translate($message);
+    }
+});
 ```
-
-Basic formatter defaults to `{}` style syntax but this can be changed in the constructor.
-
-#### ICU Message Format
-
-Requires an additional component which parses the ICU message format so that a representation can be sent to the
-translation service.
-
-#### Installation
-
-```bash
-$ composer require marketforce-info/message-format-parser
-```
-
-##### Usage
-
-```php
-    use \MarketforceInfo\AzureTranslator\MessageFormatter\IcuFormatter;
-    $builder->withMessageFormatter(new IcuFormatter());
-```
-
-##### Caveat
-
-The process of creating a representation to send to the translation service produces a verbose output which
-could have a detrimental effect on the character count and subsequently the billing by the Azure service. Additionally,
-the ICU parsing attempts to achieve the best translation outcome by composing variations of the messages when the
-format of a ICU message is `select`, `selectordinal` or `plural`.
-
-#### Custom Message Format
-
-It's possible to create a custom message format class. The `withMessageFormatter` method accepts any implementation of
-the `MessageFormatter` interface.
 
 ### Translated Message
 
-The `onTranslate` callback method receives a DTO translation. It contains four properties:
+The `onTranslate` callback method receives a DTO translation of an individual translated message for a language. It
+contains four properties:
 
 `$message` is a string of the translated message.
 
-`$language` is an Enum of the language the message has been translated into.
+`$language` is an `Language` enum of the language the message has been translated into.
 
 `$traceId` is a trace ID used to track requests (see below for more information).
 
-`$state` is an array that was passed as at the point of translation request.
+`$state` is an array that was optionally passed as at the point of the translation request.
 
 The state is something that can be optionally set at the point of request (`translate`).
 
@@ -158,6 +117,61 @@ static function (Translation $translation) use ($db) {
     );
 };
 ```
+
+## Features
+
+### Message Format
+
+By default, there is no message formatting. The following outlines alternatives to allow for different translation
+behaviours.
+
+#### Basic
+
+Allows for basic syntax substitution in messages. For example
+
+```text
+Welcome {name} to the monthly newsletter from {company}
+```
+
+The formatter will substitute the variables, so they won't be translated and then replace them in the final translated
+message.
+
+```php
+use \MarketforceInfo\AzureTranslator\MessageFormatter\BasicFormatter;
+$builder->withMessageFormatter(new BasicFormatter());
+```
+
+Basic formatter defaults to `{}` style syntax but this can be changed in the constructor.
+
+#### ICU Message Format
+
+Requires an additional component which parses the ICU message format so that a representation can be sent to the
+translation service.
+
+#### Installation
+
+```bash
+$ composer require marketforce-info/message-format-parser
+```
+
+##### Usage
+
+```php
+use \MarketforceInfo\AzureTranslator\MessageFormatter\IcuFormatter;
+$builder->withMessageFormatter(new IcuFormatter());
+```
+
+##### Caveat
+
+The process of creating a representation to send to the translation service produces a verbose output which
+could have a detrimental effect on the character count and subsequently the billing by the Azure service. Additionally,
+the ICU parsing attempts to achieve the best translation outcome by composing variations of the messages when the
+format of a ICU message is `select`, `selectordinal` or `plural`.
+
+#### Custom Message Format
+
+It's possible to create a custom message format class. The `withMessageFormatter` method accepts any implementation of
+the `MessageFormatter` interface.
 
 ### Tracing Requests
 
