@@ -5,7 +5,6 @@
 [![Total Downloads](https://img.shields.io/packagist/dt/marketforce-info/azure-translator?logo=packagist)](https://packagist.org/packages/marketforce-info/azure-translator)
 ![Licence](https://img.shields.io/github/license/marketforce-info/azure-translator.svg)
 
-## Description
 Sends batches of messages to be translated to the Azure translate service. Has the option of handling variables as a
 formatted message.
 
@@ -25,21 +24,59 @@ $ composer require marketforce-info/azure-translator
 ## Usage
 
 ```php
-    use \MarketforceInfo\AzureTranslator\Translator;
-    (new Translator())
-        ->onTranslate(static function (string $message, Language $language, Context $context) {
-            // do something with the message
-        })
-        ->session(static function ($translator) use ($messages) {
-            foreach ($messages as $message) {
-                $translator->translate($message);
-            }
-        });
+use \MarketforceInfo\AzureTranslator\Builder;
+use \MarketforceInfo\AzureTranslator\Translator\Delegate;
+use \MarketforceInfo\AzureTranslator\Translator\Language;
+use \MarketforceInfo\AzureTranslator\Translator\Translation;
+$translator = Builder::createBasic(
+    '<subscription-key>',
+    [Language::french, Language::italian],
+    static function (Translation $translation) {
+        // do something with the message
+    }
+);
+
+$translator->begin(static function (Delegate $translator) use ($messages) {
+    foreach ($messages as $message) {
+        $translator->translate($message);
+    }
+});
+```
+
+More in depth example of using the `Builder` class.
+
+```php
+use \MarketforceInfo\AzureTranslator\Builder;
+use \MarketforceInfo\AzureTranslator\MessageFormatter\BasicFormatter;
+use \MarketforceInfo\AzureTranslator\Translator\Client;
+use \MarketforceInfo\AzureTranslator\Translator\Language;
+use \MarketforceInfo\AzureTranslator\Translator\Translation;
+
+$translator = (new Builder())
+    ->withBaseUrl(Client::BASE_URL_US)
+    ->withLanguages([Language::arabic], Language::english)
+    ->withBearerToken('<bearer-token>')
+    ->withMessageFormatter(new BasicFormatter('[', ']'))
+    ->withTraceIdCallback(fn () => 'xxxx-XXXX-xxxx-XXXX-xxxx')
+    ->when(
+        $_ENV['delete_profanity'] === true,
+        fn (Builder $builder) => $builder->withProfanityDeleted(),
+        fn (Builder $builder) => $builder->withProfanityMarked()
+    )
+    ->withTranslateCallback(function (Translation $translation) {
+        // record
+    })
+    ->create();
 ```
 
 ## Features
 
 ### Message Format
+
+By default, there is no message formatting. The following outlines alternatives to allow for different translation
+behaviours.
+
+#### Basic
 
 Allows for basic syntax substitution in messages. For example
 
@@ -52,12 +89,12 @@ message.
 
 ```php
     use \MarketforceInfo\AzureTranslator\MessageFormatter\BasicFormatter;
-    $translator->setMessageFormatter(new BasicFormatter());
+    $builder->withMessageFormatter(new BasicFormatter());
 ```
 
 Basic formatter defaults to `{}` style syntax but this can be changed in the constructor.
 
-### ICU Message Format
+#### ICU Message Format
 
 Requires an additional component which parses the ICU message format so that a representation can be sent to the
 translation service.
@@ -68,38 +105,38 @@ translation service.
 $ composer require marketforce-info/message-format-parser
 ```
 
-#### Usage
+##### Usage
 
 ```php
     use \MarketforceInfo\AzureTranslator\MessageFormatter\IcuFormatter;
-    $translator->setMessageFormatter(new IcuFormatter());
+    $builder->withMessageFormatter(new IcuFormatter());
 ```
 
-#### Caveat
+##### Caveat
 
 The process of creating a representation to send to the translation service produces a verbose output which
 could have a detrimental effect on the character count and subsequently the billing by the Azure service. Additionally,
 the ICU parsing attempts to achieve the best translation outcome by composing variations of the messages when the
 format of a ICU message is `select`, `selectordinal` or `plural`.
 
-### Custom Message Format
+#### Custom Message Format
 
-It's possible to create a custom message format class. The `setMessageFormatter` method accepts any implementation of
+It's possible to create a custom message format class. The `withMessageFormatter` method accepts any implementation of
 the `MessageFormatter` interface.
 
-### Context and State
+### Translated Message
 
-The `onTranslate` callback method receives three parameters.
+The `onTranslate` callback method receives a DTO translation. It contains four properties:
 
 `$message` is a string of the translated message.
 
 `$language` is an Enum of the language the message has been translated into.
 
-`$context` is a `Context` object representing different attributes that might be useful. These include the original
-message, the language of the original message, a trace ID used to track requests (see below for more information) and
-an array of state.
+`$traceId` is a trace ID used to track requests (see below for more information).
 
-The state is something that can be optionally set at the point of request.
+`$state` is an array that was passed as at the point of translation request.
+
+The state is something that can be optionally set at the point of request (`translate`).
 
 ```php
 foreach ($messages as $messageId => $message) {
@@ -110,18 +147,37 @@ foreach ($messages as $messageId => $message) {
 Then later, in the `onTranslate` callback.
 
 ```php
-static function (string $message, Language $language, Context $context) use ($db) {
+static function (Translation $translation) use ($db) {
     $db->replace(
         table: 'translations',
-        where: ['id' => $context->state['messageId'], 'language' => $language->value],
-        data: ['message' => $message]
+        where: [
+            'id' => $translation->state['messageId'],
+            'language' => $translation->language->value
+        ],
+        data: ['message' => $translation->message]
     );
 };
 ```
 
 ### Tracing Requests
 
-includign reusing original generate function
+Each individual request to the Azure service includes a Client Trace ID. By default, this is handled automatically.
+This can be overridden with the following method.
+
+#### User defined function
+
+```php
+$builder->withTraceIdCallback(fn () => 'xxxx-XXXX-xxxx-XXXX-xxxx');
+// or
+$builder->withTraceIdCallback([$this, 'traceFunction']);
+// or
+$builder->withTraceIdCallback(fn (\Closure $generatorFn) => $generatorFn);
+```
+
+#### Generator function
+
+As shown, the call back is passed a parameter which allows the use of the internal generator function. This is useful
+in scenarions where it's a trace ID is recorded for every request made.
 
 ### Handling Profanity
 
@@ -139,11 +195,6 @@ $builder->withProfanityMarked(static function (string $phrase) {
     return '<span class="profanity">' . str_pad('', mb_strlen($phrase), 'x') . '</span>';
 });
 ```
-
-## Custom Message Format
-
-Erm...
-
 ## Contributions
 
 Contributions gratefully accepted in the form issues or PRs.
