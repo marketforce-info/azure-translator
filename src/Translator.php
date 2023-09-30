@@ -8,6 +8,7 @@ use MarketforceInfo\AzureTranslator\Translator\Delegate;
 use MarketforceInfo\AzureTranslator\Translator\Client;
 use MarketforceInfo\AzureTranslator\Translator\Language;
 use MarketforceInfo\AzureTranslator\Translator\Messages;
+use MarketforceInfo\AzureTranslator\Translator\ProfanityHandler;
 use MarketforceInfo\AzureTranslator\Translator\Translation;
 
 class Translator
@@ -21,6 +22,7 @@ class Translator
         private readonly Client $client,
         callable $onTranslate,
         ?MessageFormatter $formatter = null,
+        private readonly ?ProfanityHandler $profanityHandler = null,
         array $config = []
     ) {
         $this->onTranslate = $onTranslate;

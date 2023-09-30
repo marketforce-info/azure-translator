@@ -8,6 +8,7 @@ use MarketforceInfo\AzureTranslator\MessageFormatter\BasicFormatter;
 use MarketforceInfo\AzureTranslator\MessageFormatter\MessageFormatter;
 use MarketforceInfo\AzureTranslator\Translator\Client;
 use MarketforceInfo\AzureTranslator\Translator\Language;
+use MarketforceInfo\AzureTranslator\Translator\ProfanityHandler;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\RequestInterface;
@@ -178,7 +179,7 @@ class Builder
     public function withProfanityDeleted(): self
     {
         $this->config['profanity_handling'] = [
-            'action' => 'Deleted',
+            'action' => ProfanityHandler::ACTION_DELETED,
             'marker' => null,
         ];
         return $this;
@@ -191,7 +192,7 @@ class Builder
     public function withProfanityMarked(callable $handler = null): self
     {
         $this->config['profanity_handling'] = [
-            'action' => 'Marked',
+            'action' => ProfanityHandler::ACTION_MARKED,
             'marker' => $handler,
         ];
         return $this;
@@ -225,7 +226,8 @@ class Builder
                 $this->traceIdCallback ?? null
             ),
             $this->translateCallback,
-            $this->formatter ?? null
+            $this->formatter ?? null,
+            $this->profanityHandler ?? null,
         );
     }
 
@@ -235,11 +237,20 @@ class Builder
             ->createRequest('GET', $this->baseUrl)
             ->withHeader('Content-Type', 'application/json');
 
-        $params = http_build_query([
+        $params = [
             'api-version' => '3.0',
             'from' => $this->fromLanguage->value,
-            'textType' => 'html'
-        ]);
+            'textType' => 'html',
+            'profanityAction' => 'NoAction',
+        ];
+        if (isset($this->config['profanity_handling'])) {
+            $params['profanityAction'] = $this->config['profanity_handling']['action'];
+            if ($this->config['profanity_handling']['action'] === ProfanityHandler::ACTION_MARKED) {
+                $params['profanityMarker'] = (is_callable($this->config['profanity_handling']['marker']))
+                    ? ProfanityHandler::MARKER_TAG
+                    : ProfanityHandler::MARKER_ASTERISK;
+            }
+        }
 
         $uri = $request->getUri();
         $request = $request->withUri(
