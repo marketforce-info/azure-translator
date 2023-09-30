@@ -40,7 +40,9 @@ class Translator
 
     private function translate(string $message, array $state = []): self
     {
-        $message = $this->messageFormatter->toAzure($message);
+        if (isset($this->messageFormatter)) {
+            $message = $this->messageFormatter->toAzure($message);
+        }
         $this->messages->validate($message);
 
         if (!$this->messages->canAccept($message)) {
