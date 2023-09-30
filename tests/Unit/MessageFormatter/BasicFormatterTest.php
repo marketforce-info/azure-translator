@@ -22,13 +22,25 @@ class BasicFormatterTest extends TestCase
         $this->assertEquals('Hello', $formatter->toAzure('Hello'));
     }
 
-    public function testToAzure()
+    /**
+     * @dataProvider toAzureProvider
+     */
+    public function testToAzure($startToken, $endToken, $message)
     {
-        $formatter = new BasicFormatter();
+        $formatter = new BasicFormatter($startToken, $endToken);
         $this->assertEquals(
             'Hello <t:var class="notranslate">name</t:var>',
-            $formatter->toAzure('Hello {name}')
+            $formatter->toAzure($message)
         );
+    }
+
+    public function toAzureProvider()
+    {
+        return [
+            'curly' => ['{', '}', 'Hello {name}'],
+            'square' => ['[', ']', 'Hello [name]'],
+            'tag' => ['<mytag>', '</mytag>', 'Hello <mytag>name</mytag>'],
+        ];
     }
 
     public function testToAzureWithMultipleVariables()
@@ -40,17 +52,19 @@ class BasicFormatterTest extends TestCase
         );
     }
 
-    public function testToAzureWithDifferentSyntax()
-    {
-        $formatter = new BasicFormatter('[', ']');
-        $actual = $formatter->toAzure('Hello [name]');
-        $this->assertEquals('Hello <t:var class="notranslate">name</t:var>', $actual);
-    }
-
-    public function testToAzureWithSyntaxMismatch()
+    public function testToAzureWithTokenMismatch()
     {
         $formatter = new BasicFormatter('[', ']');
         $this->assertEquals('Hello {name}', $formatter->toAzure('Hello {name}'));
+    }
+
+    public function testToAzureWithUnencodedMessage()
+    {
+        $formatter = new BasicFormatter();
+        $this->assertEquals(
+            'Hello <t:var class="notranslate">name &apos;</t:var>',
+            $formatter->toAzure('Hello {name \'}')
+        );
     }
 
     public function testFromAzureBasic()
@@ -60,10 +74,17 @@ class BasicFormatterTest extends TestCase
         $this->assertEquals('Salut {name}', $actual);
     }
 
-    public function testFromAzureWithDifferentSyntax()
+    public function testFromAzureWithDifferentToken()
     {
         $formatter = new BasicFormatter('[', ']');
         $actual = $formatter->fromAzure('Salut <t:var class="notranslate">name</t:var>');
         $this->assertEquals('Salut [name]', $actual);
+    }
+
+    public function testFromAzureWithEncodedMessage()
+    {
+        $formatter = new BasicFormatter();
+        $actual = $formatter->fromAzure('Salut <t:var class="notranslate">name &apos;</t:var>');
+        $this->assertEquals('Salut {name \'}', $actual);
     }
 }

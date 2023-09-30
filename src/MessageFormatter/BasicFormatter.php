@@ -8,17 +8,14 @@ use MarketforceInfo\AzureTranslator\Exceptions\InvalidArgumentException;
 class BasicFormatter implements MessageFormatter
 {
     public function __construct(
-        private readonly string $startChar = '{',
-        private readonly string $endChar = '}'
+        private readonly string $startToken = '{',
+        private readonly string $endToken = '}'
     ) {
-        if (strlen($startChar) !== 1 || strlen($endChar) !== 1) {
-            throw new InvalidArgumentException('Start and end characters must be a single character');
-        }
     }
 
     public function toAzure(string $message): string
     {
-        $pattern = sprintf('/%s(.*?)%s/', preg_quote($this->startChar, '/'), preg_quote($this->endChar, '/'));
+        $pattern = sprintf('/%s(.*?)%s/', preg_quote($this->startToken, '/'), preg_quote($this->endToken, '/'));
         return preg_replace_callback($pattern, function (array $matches) {
             return $this->encode($matches[1]);
         }, $message);
@@ -28,7 +25,8 @@ class BasicFormatter implements MessageFormatter
     {
         $pattern = "/<t:var [^>]+>([^<]*)<\/t:var>/";
         return preg_replace_callback($pattern, function (array $matches) {
-            return "{$this->startChar}{$matches[1]}{$this->endChar}";
+            $matches[1] = html_entity_decode($matches[1], ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1, 'UTF-8');
+            return "{$this->startToken}{$matches[1]}{$this->endToken}";
         }, $content);
     }
 
