@@ -256,7 +256,7 @@ class Builder
         $request = $request->withUri(
             $uri->withScheme('https')
                 ->withPath('/translate')
-                ->withQuery($params . '&' . Language::asQueryParam($this->toLanguages))
+                ->withQuery(http_build_query($params) . '&' . Language::asQueryParam($this->toLanguages))
         );
 
         if (isset($this->authentication)) {
