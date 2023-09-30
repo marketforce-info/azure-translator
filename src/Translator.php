@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace MarketforceInfo\AzureTranslator;
 
 use MarketforceInfo\AzureTranslator\MessageFormatter\MessageFormatter;
-use MarketforceInfo\AzureTranslator\MessageFormatter\PassthruFormatter;
 use MarketforceInfo\AzureTranslator\Translator\Delegate;
 use MarketforceInfo\AzureTranslator\Translator\Client;
 use MarketforceInfo\AzureTranslator\Translator\Language;
@@ -25,9 +24,6 @@ class Translator
         array $config = []
     ) {
         $this->onTranslate = $onTranslate;
-        if (!$formatter instanceof MessageFormatter) {
-            $formatter = new PassthruFormatter();
-        }
         $this->formatter = $formatter;
         $this->messages = new Messages(
             messageLimit: $config['messageLimit'] ?? Messages::MAX_MESSAGE_LENGTH,
