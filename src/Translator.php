@@ -15,18 +15,16 @@ class Translator
 {
     /** @var callable */
     private $onTranslate;
-    private MessageFormatter $formatter;
     private Messages $messages;
 
     public function __construct(
         private readonly Client $client,
         callable $onTranslate,
-        ?MessageFormatter $formatter = null,
+        private readonly ?MessageFormatter $messageFormatter = null,
         private readonly ?ProfanityHandler $profanityHandler = null,
         array $config = []
     ) {
         $this->onTranslate = $onTranslate;
-        $this->formatter = $formatter;
         $this->messages = new Messages(
             messageLimit: $config['messageLimit'] ?? Messages::MAX_MESSAGE_LENGTH,
             characterLimit: $config['characterLimit'] ?? Messages::MAX_CHARACTER_LENGTH
@@ -42,7 +40,7 @@ class Translator
 
     private function translate(string $message, array $state = []): self
     {
-        $message = $this->formatter->toAzure($message);
+        $message = $this->messageFormatter->toAzure($message);
         $this->messages->validate($message);
 
         if (!$this->messages->canAccept($message)) {
@@ -62,12 +60,24 @@ class Translator
             }
             [, $state] = $this->messages[$position];
             ($this->onTranslate)(new Translation(
-                $this->formatter->fromAzure($translation['text']),
+                $this->filter($translation['text']),
                 $language,
                 $translation['clientTraceId'],
                 $state
             ));
         }
         $this->messages->clear();
+    }
+
+    private function filter(string $message): string
+    {
+        if (isset($this->profanityHandler)) {
+            $message = ($this->profanityHandler)($message);
+        }
+        if (isset($this->messageFormatter)) {
+            $message = $this->messageFormatter->fromAzure($message);
+        }
+
+        return $message;
     }
 }
