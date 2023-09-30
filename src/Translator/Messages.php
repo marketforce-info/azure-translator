@@ -7,7 +7,7 @@ use MarketforceInfo\AzureTranslator\Exceptions\BadMethodCallException;
 use MarketforceInfo\AzureTranslator\Exceptions\InvalidArgumentException;
 use Traversable;
 
-class Messages implements \IteratorAggregate, \Countable, \ArrayAccess
+class Messages implements \IteratorAggregate, \Countable, \ArrayAccess, \JsonSerializable
 {
     public const MAX_MESSAGE_LENGTH = 1000;
     public const MAX_CHARACTER_LENGTH = 50_000;
@@ -106,8 +106,8 @@ class Messages implements \IteratorAggregate, \Countable, \ArrayAccess
         throw new BadMethodCallException('Cannot unset messages');
     }
 
-    public function toArray(): array
+    public function jsonSerialize(): array
     {
-        return array_map(static fn (array $message) => ['Text' => $message[0]], $this->messages);
+        return array_map(static fn (array $message) => ['Text' => $message[0]], $this->messages);;
     }
 }
