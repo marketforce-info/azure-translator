@@ -9,7 +9,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
 
-class TranslateResponse
+class ResponseFactory
 {
     public function __construct(private TestCase $test)
     {

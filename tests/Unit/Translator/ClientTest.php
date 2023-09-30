@@ -2,7 +2,7 @@
 
 namespace MarketforceInfo\AzureTranslator\Tests\Unit\Translator;
 
-use MarketforceInfo\AzureTranslator\Tests\TranslateResponse;
+use MarketforceInfo\AzureTranslator\Tests\ResponseFactory;
 use MarketforceInfo\AzureTranslator\Translator\Client;
 use MarketforceInfo\AzureTranslator\Translator\Language;
 use MarketforceInfo\AzureTranslator\Translator\Messages;
@@ -20,12 +20,12 @@ class ClientTest extends TestCase
     private ClientInterface $httpClient;
     private RequestInterface $baseRequest;
     private StreamFactoryInterface $streamFactory;
-    private TranslateResponse $responseFactory;
+    private ResponseFactory $responseFactory;
 
     public function __construct(?string $name = null, array $data = [], $dataName = '')
     {
         parent::__construct($name, $data, $dataName);
-        $this->responseFactory = new TranslateResponse($this);
+        $this->responseFactory = new ResponseFactory($this);
     }
 
     protected function setUp(): void
