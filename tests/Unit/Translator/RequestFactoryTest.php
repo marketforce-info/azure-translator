@@ -134,9 +134,9 @@ class RequestFactoryTest extends TestCase
         return new RequestFactory(
             $this->requestFactory,
             $this->streamFactory,
-            $baseUrl,
-            $from,
             $to,
+            $from,
+            $baseUrl,
             $config
         );
     }

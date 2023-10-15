@@ -71,9 +71,9 @@ class TranslatorTest extends TestCase
             new Translator\RequestFactory(
                 $requestFactory,
                 $streamFactory,
-                Translator\Client::BASE_URL_ASIA,
+                [Translator\Language::spanish, Translator\Language::italian],
                 Translator\Language::english,
-                [Translator\Language::spanish, Translator\Language::italian]
+                Translator\RequestFactory::BASE_URL_ASIA
             )
         );
 

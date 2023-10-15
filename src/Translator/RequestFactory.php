@@ -8,14 +8,19 @@ use Psr\Http\Message\StreamFactoryInterface;
 
 class RequestFactory
 {
+    public const BASE_URL_GLOBAL = 'https://api.cognitive.microsofttranslator.com';
+    public const BASE_URL_ASIA = 'https://api-apc.cognitive.microsofttranslator.com';
+    public const BASE_URL_EUROPE = 'https://api-eur.cognitive.microsofttranslator.com';
+    public const BASE_URL_US = 'https://api-nam.cognitive.microsofttranslator.com';
+
     private RequestInterface $baseRequest;
 
     public function __construct(
         RequestFactoryInterface $requestFactory,
         private readonly StreamFactoryInterface $streamFactory,
-        string $baseUrl,
-        Language $fromLanguage,
         array $toLanguages,
+        Language $fromLanguage = Language::english,
+        string $baseUrl = self::BASE_URL_GLOBAL,
         array $config = []
     ) {
         $request = $requestFactory

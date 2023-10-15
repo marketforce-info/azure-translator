@@ -12,11 +12,6 @@ use Psr\Http\Message\RequestInterface;
 
 class Client
 {
-    public const BASE_URL_GLOBAL = 'https://api.cognitive.microsofttranslator.com';
-    public const BASE_URL_ASIA = 'https://api-apc.cognitive.microsofttranslator.com';
-    public const BASE_URL_EUROPE = 'https://api-eur.cognitive.microsofttranslator.com';
-    public const BASE_URL_US = 'https://api-nam.cognitive.microsofttranslator.com';
-
     /** @var callable|null  */
     private $traceIdCallback;
 

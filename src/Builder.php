@@ -15,7 +15,7 @@ use Psr\Http\Message\StreamFactoryInterface;
 
 class Builder
 {
-    private string $baseUrl = Client::BASE_URL_GLOBAL;
+    private string $baseUrl = RequestFactory::BASE_URL_GLOBAL;
     private ClientInterface $client;
     private RequestFactoryInterface $requestFactory;
     private StreamFactoryInterface $streamFactory;
@@ -186,9 +186,9 @@ class Builder
                 new RequestFactory(
                     $this->requestFactory,
                     $this->streamFactory,
-                    $this->baseUrl,
-                    $this->fromLanguage,
                     $this->toLanguages,
+                    $this->fromLanguage,
+                    $this->baseUrl,
                     $this->requestConfig
                 ),
                 $this->traceIdCallback ?? null
