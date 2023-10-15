@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace MarketforceInfo\AzureTranslator;
@@ -16,14 +17,24 @@ use Psr\Http\Message\StreamFactoryInterface;
 class Builder
 {
     private string $baseUrl = RequestFactory::BASE_URL_GLOBAL;
+
     private ClientInterface $client;
+
     private RequestFactoryInterface $requestFactory;
+
     private StreamFactoryInterface $streamFactory;
+
     private Language $fromLanguage = Language::english;
+
     private array $toLanguages;
+
     private MessageFormatter $formatter;
-    /** @var callable */
+
+    /**
+     * @var callable
+     */
     private $traceIdCallback;
+
     private array $requestConfig = [];
 
     /**
@@ -61,7 +72,6 @@ class Builder
      * Set the language to translate from. By default, this is English.
      *
      * @param array<int, Language> $to
-     * @param Language $from
      * @return $this
      */
     public function withLanguages(array $to, Language $from = Language::english): self

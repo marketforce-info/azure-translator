@@ -1,13 +1,13 @@
 <?php
+
 declare(strict_types=1);
 
 namespace MarketforceInfo\AzureTranslator\MessageFormatter;
 
-use MarketforceInfo\AzureTranslator\Exceptions\InvalidArgumentException;
-
 class BasicFormatter implements MessageFormatter
 {
     public const TAG_VAR_OPEN = '<t:var class="notranslate">';
+
     public const TAG_VAR_CLOSE = '</t:var>';
 
     public function __construct(

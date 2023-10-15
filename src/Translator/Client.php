@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace MarketforceInfo\AzureTranslator\Translator;
@@ -12,7 +13,9 @@ use Psr\Http\Message\RequestInterface;
 
 class Client
 {
-    /** @var callable|null  */
+    /**
+     * @var callable|null
+     */
     private $traceIdCallback;
 
     private array $meteredUsage = [];
@@ -70,7 +73,8 @@ class Client
     private function createClientTraceId(): string
     {
         $traceIdFn = static function (): string {
-            return sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+            return sprintf(
+                '%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
                 random_int(0, 0xffff),
                 random_int(0, 0xffff),
                 random_int(0, 0xffff),

@@ -5,15 +5,22 @@ namespace MarketforceInfo\AzureTranslator\Translator;
 class ProfanityHandler
 {
     public const ACTION_MARKED = 'Marked';
+
     public const ACTION_DELETED = 'Deleted';
+
     public const MARKER_ASTERISK = 'Asterisk';
+
     public const MARKER_TAG = 'Tag';
 
-    /** @var ?callable $marker */
+    /**
+     * @var ?callable
+     */
     private $marker;
 
-    public function __construct(private readonly string $action, ?callable $marker = null)
-    {
+    public function __construct(
+        private readonly string $action,
+        ?callable $marker = null
+    ) {
         if ($this->action === self::ACTION_MARKED) {
             $this->marker = $marker;
         }

@@ -10,7 +10,7 @@ class ClientException extends RuntimeException implements RequestExceptionInterf
 {
     public function __construct(
         private readonly RequestInterface $request,
-        string $message = "",
+        string $message = '',
         int $code = 0,
         ?\Throwable $previous = null
     ) {

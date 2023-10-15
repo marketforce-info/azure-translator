@@ -1,12 +1,13 @@
 <?php
+
 declare(strict_types=1);
 
 namespace MarketforceInfo\AzureTranslator;
 
 use MarketforceInfo\AzureTranslator\Exceptions\RuntimeException;
 use MarketforceInfo\AzureTranslator\MessageFormatter\MessageFormatter;
-use MarketforceInfo\AzureTranslator\Translator\Delegate;
 use MarketforceInfo\AzureTranslator\Translator\Client;
+use MarketforceInfo\AzureTranslator\Translator\Delegate;
 use MarketforceInfo\AzureTranslator\Translator\Language;
 use MarketforceInfo\AzureTranslator\Translator\Messages;
 use MarketforceInfo\AzureTranslator\Translator\ProfanityHandler;
@@ -14,8 +15,11 @@ use MarketforceInfo\AzureTranslator\Translator\Translation;
 
 class Translator
 {
-    /** @var callable */
+    /**
+     * @var callable
+     */
     private $onTranslate;
+
     private Messages $messages;
 
     public function __construct(

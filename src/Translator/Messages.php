@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace MarketforceInfo\AzureTranslator\Translator;
@@ -10,25 +11,39 @@ use Traversable;
 class Messages implements \IteratorAggregate, \Countable, \ArrayAccess, \JsonSerializable
 {
     public const MAX_MESSAGE_LENGTH = 1000;
+
     public const MAX_CHARACTER_LENGTH = 50_000;
 
     private int $messageLimit;
+
     private int $characterLimit;
 
     private array $messages = [];
+
     private int $messageCount = 0;
+
     private int $characterCount = 0;
 
     public function __construct(int $messageLimit = self::MAX_MESSAGE_LENGTH, int $characterLimit = self::MAX_CHARACTER_LENGTH)
     {
-        $range = ['min_range' => 1, 'max_range' => self::MAX_MESSAGE_LENGTH];
-        if (!filter_var($messageLimit, FILTER_VALIDATE_INT, ['options' => $range])) {
+        $range = [
+            'min_range' => 1,
+            'max_range' => self::MAX_MESSAGE_LENGTH,
+        ];
+        if (!filter_var($messageLimit, FILTER_VALIDATE_INT, [
+            'options' => $range,
+        ])) {
             throw new InvalidArgumentException('Batch size must be between 1 and 1000');
         }
         $this->messageLimit = $messageLimit;
 
-        $range = ['min_range' => 1, 'max_range' => self::MAX_CHARACTER_LENGTH];
-        if (!filter_var($characterLimit, FILTER_VALIDATE_INT, ['options' => $range])) {
+        $range = [
+            'min_range' => 1,
+            'max_range' => self::MAX_CHARACTER_LENGTH,
+        ];
+        if (!filter_var($characterLimit, FILTER_VALIDATE_INT, [
+            'options' => $range,
+        ])) {
             throw new InvalidArgumentException('Batch size must be between 1 and 50,000');
         }
         $this->characterLimit = $characterLimit;
@@ -112,6 +127,8 @@ class Messages implements \IteratorAggregate, \Countable, \ArrayAccess, \JsonSer
 
     public function jsonSerialize(): array
     {
-        return array_map(static fn (array $message) => ['Text' => $message[0]], $this->messages);
+        return array_map(static fn (array $message) => [
+            'Text' => $message[0],
+        ], $this->messages);
     }
 }

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace MarketforceInfo\AzureTranslator\Translator;
@@ -119,8 +120,6 @@ enum Language: string
 
     /**
      * @param array<int, Language> $languages
-     * @param Language $exclude
-     * @return void
      */
     public static function verify(array $languages, Language $exclude): void
     {
@@ -128,7 +127,7 @@ enum Language: string
             throw new InvalidArgumentException('To languages cannot be empty');
         }
         try {
-            $unique = array_unique(array_map(static fn(Language $language) => $language->value, $languages));
+            $unique = array_unique(array_map(static fn (Language $language) => $language->value, $languages));
         } catch (\TypeError) {
             throw new InvalidArgumentException('List of languages must be an array of Language objects');
         }
@@ -142,21 +141,20 @@ enum Language: string
 
     /**
      * @param array<int, Language> $languages
-     * @return string
      */
     public static function asQueryParam(array $languages): string
     {
         return implode(
             '&',
-            self::toValues($languages, static fn(string $language) => 'to=' . urlencode($language))
+            self::toValues($languages, static fn (string $language) => 'to=' . urlencode($language))
         );
     }
 
     public static function toValues(array $languages, \Closure $transform = null): array
     {
         if (!$transform) {
-            $transform = static fn(string $language) => $language;
+            $transform = static fn (string $language) => $language;
         }
-        return array_map(static fn(Language $language) => $transform($language->value), $languages);
+        return array_map(static fn (Language $language) => $transform($language->value), $languages);
     }
 }
