@@ -23,61 +23,54 @@ class MessagesTest extends TestCase
     public function testAddingMessage()
     {
         $messages = new Messages();
-        $messages->add('Hello');
+        $messages->add('Hello', null);
         $this->assertCount(1, $messages);
     }
 
     public function testAddingMultibyteCharacters()
     {
         $messages = new Messages();
-        $messages->add('こんにちは');
+        $messages->add('こんにちは', null);
         $this->assertCount(1, $messages);
     }
 
     public function testAddingMultipleMessages()
     {
         $messages = new Messages();
-        $messages->add('Foo');
-        $messages->add('Bar');
-        $messages->add('Baz');
+        $messages->add('Foo', null);
+        $messages->add('Bar', null);
+        $messages->add('Baz', null);
         $this->assertCount(3, $messages);
     }
 
     public function testAddingMessageWithState()
     {
         $messages = new Messages();
-        $messages->add('Hello', ['foo' => 'bar']);
+        $messages->add('Hello', null);
         $this->assertCount(1, $messages);
     }
 
     public function testAccessingPositional()
     {
         $messages = new Messages();
-        $messages->add('Hello');
-        $this->assertEquals('Hello', $messages[0][0]);
-    }
-
-    public function testAccessingPositionalState()
-    {
-        $messages = new Messages();
-        $messages->add('Hello', ['foo' => 'bar']);
-        $this->assertSame(['foo' => 'bar'], $messages[0][1]);
+        $messages->add('Hello', $expected = ['foo' => 'bar']);
+        $this->assertSame($expected, $messages[0]);
     }
 
     public function testSettingMessageLimit()
     {
         $this->expectException(BadMethodCallException::class);
         $messages = new Messages(messageLimit: 2);
-        $messages->add('Foo');
-        $messages->add('Bar');
-        $messages->add('Baz');
+        $messages->add('Foo', null);
+        $messages->add('Bar', null);
+        $messages->add('Baz', null);
     }
 
     public function testSettingCharacterLimit()
     {
         $this->expectException(InvalidArgumentException::class);
         $messages = new Messages(characterLimit: 100);
-        $messages->add(str_pad('', 101, 'a'));
+        $messages->add(str_pad('', 101, 'a'), null);
     }
 
     public function testValidatingMessage()
@@ -98,7 +91,7 @@ class MessagesTest extends TestCase
     {
         $messages = new Messages(messageLimit: 1000, characterLimit: 100);
         $this->assertTrue($messages->canAccept($initial = str_pad('', 99, 'a')));
-        $messages->add($initial);
+        $messages->add($initial, null);
         $this->assertFalse($messages->canAccept(str_pad('', 2, 'a')));
     }
 
@@ -106,14 +99,14 @@ class MessagesTest extends TestCase
     {
         $messages = new Messages(messageLimit: 1, characterLimit: 1000);
         $this->assertTrue($messages->canAccept($initial = str_pad('', 100, 'a')));
-        $messages->add($initial);
+        $messages->add($initial, null);
         $this->assertFalse($messages->canAccept(str_pad('', 100, 'a')));
     }
 
     public function testClear()
     {
         $messages = new Messages();
-        $messages->add('Foo');
+        $messages->add('Foo', null);
         $this->assertCount(1, $messages);
         $messages->clear();
         $this->assertCount(0, $messages);

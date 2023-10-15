@@ -43,7 +43,7 @@ class Messages implements \IteratorAggregate, \Countable, \ArrayAccess, \JsonSer
         }
     }
 
-    public function add($message, array $state = []): self
+    public function add($message, mixed $state): self
     {
         $this->validate($message);
         if (!$this->canAccept($message)) {
@@ -70,6 +70,13 @@ class Messages implements \IteratorAggregate, \Countable, \ArrayAccess, \JsonSer
         return $this;
     }
 
+    public function clearSources(): self
+    {
+        array_walk($this->messages, static fn (&$message) => $message[0] = '');
+        gc_collect_cycles();
+        return $this;
+    }
+
     public function getIterator(): Traversable
     {
         return new \ArrayIterator($this->messages);
@@ -85,15 +92,12 @@ class Messages implements \IteratorAggregate, \Countable, \ArrayAccess, \JsonSer
         return isset($this->messages[$offset]);
     }
 
-    /**
-     * @return array{0: string, 1: array}
-     */
-    public function offsetGet(mixed $offset): array
+    public function offsetGet(mixed $offset): mixed
     {
         if (!is_int($offset) || !isset($this->messages[$offset])) {
             throw new InvalidArgumentException("Invalid offset {$offset} specified.");
         }
-        return $this->messages[$offset];
+        return $this->messages[$offset][1];
     }
 
     public function offsetSet(mixed $offset, mixed $value): void
@@ -108,6 +112,6 @@ class Messages implements \IteratorAggregate, \Countable, \ArrayAccess, \JsonSer
 
     public function jsonSerialize(): array
     {
-        return array_map(static fn (array $message) => ['Text' => $message[0]], $this->messages);;
+        return array_map(static fn (array $message) => ['Text' => $message[0]], $this->messages);
     }
 }

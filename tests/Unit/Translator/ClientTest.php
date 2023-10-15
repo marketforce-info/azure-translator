@@ -6,38 +6,30 @@ use MarketforceInfo\AzureTranslator\Tests\ResponseFactory;
 use MarketforceInfo\AzureTranslator\Translator\Client;
 use MarketforceInfo\AzureTranslator\Translator\Language;
 use MarketforceInfo\AzureTranslator\Translator\Messages;
+use MarketforceInfo\AzureTranslator\Translator\RequestFactory;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Client\RequestExceptionInterface;
-use Psr\Http\Message\RequestInterface;
-use Psr\Http\Message\StreamFactoryInterface;
 
 /**
  * @covers \MarketforceInfo\AzureTranslator\Translator\Client
  */
 class ClientTest extends TestCase
 {
-    private ClientInterface $httpClient;
-    private RequestInterface $baseRequest;
-    private StreamFactoryInterface $streamFactory;
+    private ClientInterface|MockObject $httpClient;
+    private RequestFactory|MockObject $requestFactory;
     private ResponseFactory $responseFactory;
-
-    public function __construct(?string $name = null, array $data = [], $dataName = '')
-    {
-        parent::__construct($name, $data, $dataName);
-        $this->responseFactory = new ResponseFactory($this);
-    }
+    private Messages|MockObject $messages;
 
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->httpClient = $this->createMock(ClientInterface::class);
-        $this->baseRequest = $this->createMock(RequestInterface::class);
-        $this->streamFactory = $this->createMock(StreamFactoryInterface::class);
-
-        $this->baseRequest->method('withHeader')->willReturnSelf();
-        $this->baseRequest->method('withBody')->willReturnSelf();
+        $this->requestFactory = $this->createMock(RequestFactory::class);
+        $this->responseFactory = new ResponseFactory($this);
+        $this->messages = $this->createMock(Messages::class);
     }
 
     public function testSuccessfulTranslation()
@@ -49,14 +41,16 @@ class ClientTest extends TestCase
                 ['Foo', 'Bar']
             ));
 
-        $client = new Client($this->httpClient, $this->baseRequest, $this->streamFactory);
-        foreach ($client->translate($this->messages([['Foo'], ['Bar']])) as $position => $translation) {
+        $languageValues = Language::toValues($languages);
+        $client = new Client($this->httpClient, $this->requestFactory);
+        foreach ($client->translate($this->messages) as $position => $translation) {
             $this->assertIsInt($position);
             $this->assertArrayHasKey('text', $translation);
             $this->assertArrayHasKey('to', $translation);
             $this->assertIsString($translation['text']);
-            $this->assertContainsEquals($translation['to'], Language::toValues($languages));
+            $this->assertContainsEquals($translation['to'], $languageValues);
             $this->assertArrayHasKey('clientTraceId', $translation);
+            break;
         }
     }
 
@@ -68,8 +62,8 @@ class ClientTest extends TestCase
 
         $expectedTraceId = 'custom';
         $traceIdCallback = static fn () => $expectedTraceId;
-        $client = new Client($this->httpClient, $this->baseRequest, $this->streamFactory, $traceIdCallback);
-        foreach ($client->translate($this->messages([['Foo']])) as $translation) {
+        $client = new Client($this->httpClient, $this->requestFactory, $traceIdCallback);
+        foreach ($client->translate($this->messages) as $translation) {
             $this->assertArrayHasKey('clientTraceId', $translation);
             $this->assertSame($expectedTraceId, $translation['clientTraceId']);
         }
@@ -87,22 +81,15 @@ class ClientTest extends TestCase
 
     public function testInvalidRequest()
     {
+        $message = 'The request is not authorized because credentials are missing or invalid.';
         $this->expectException(RequestExceptionInterface::class);
+        $this->expectExceptionMessage($message);
+
         $this->httpClient->expects($this->once())
             ->method('sendRequest')
-            ->willThrowException($this->createMock(RequestExceptionInterface::class));
+            ->willReturn($this->responseFactory->createFailure(401, $message));
 
-        $client = new Client($this->httpClient, $this->baseRequest, $this->streamFactory);
-        foreach ($client->translate($this->messages([['Foo']])) as $translation) {
-        }
-    }
-
-    private function messages(array $data): Messages
-    {
-        $collection = new Messages();
-        foreach ($data as $item) {
-            $collection->add(...$item);
-        }
-        return $collection;
+        $client = new Client($this->httpClient, $this->requestFactory);
+        foreach ($client->translate($this->messages) as $translation) {}
     }
 }

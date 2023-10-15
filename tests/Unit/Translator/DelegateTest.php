@@ -12,7 +12,10 @@ class DelegateTest extends TestCase
 {
     public function testPassesThrough()
     {
-        $delegate = new Delegate(fn () => $this->assertTrue(true));
-        $delegate->translate('some message', []);
+        $expectedMessage = 'some message';
+        $delegate = new Delegate(function ($message) use ($expectedMessage) {
+            $this->assertEquals($expectedMessage, $message);
+        });
+        $delegate->translate($expectedMessage);
     }
 }

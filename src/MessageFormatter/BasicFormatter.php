@@ -7,6 +7,9 @@ use MarketforceInfo\AzureTranslator\Exceptions\InvalidArgumentException;
 
 class BasicFormatter implements MessageFormatter
 {
+    public const TAG_VAR_OPEN = '<t:var class="notranslate">';
+    public const TAG_VAR_CLOSE = '</t:var>';
+
     public function __construct(
         private readonly string $startToken = '{',
         private readonly string $endToken = '}'
@@ -33,6 +36,6 @@ class BasicFormatter implements MessageFormatter
     private function encode(string $content): string
     {
         $content = htmlentities($content, ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1, 'UTF-8');
-        return "<t:var class=\"notranslate\">$content</t:var>";
+        return self::TAG_VAR_OPEN . $content . self::TAG_VAR_CLOSE;
     }
 }

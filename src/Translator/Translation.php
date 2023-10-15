@@ -8,7 +8,7 @@ class Translation
         public readonly string $message,
         public readonly Language $language,
         public readonly string $traceId,
-        public readonly array $state,
+        public readonly mixed $state,
     ) {
     }
 }

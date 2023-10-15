@@ -28,7 +28,8 @@
         "psr/http-message-implementation": "*"
     },
     "require-dev": {
-        "guzzlehttp/psr7": "^1.0",
+        "guzzlehttp/guzzle": "^7",
+        "guzzlehttp/psr7": "^2",
         "http-interop/http-factory-guzzle": "*",
         "php-http/message": "^1.0",
         "php-http/mock-client": "^1.0",

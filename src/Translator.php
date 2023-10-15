@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace MarketforceInfo\AzureTranslator;
 
+use MarketforceInfo\AzureTranslator\Exceptions\RuntimeException;
 use MarketforceInfo\AzureTranslator\MessageFormatter\MessageFormatter;
 use MarketforceInfo\AzureTranslator\Translator\Delegate;
 use MarketforceInfo\AzureTranslator\Translator\Client;
@@ -19,26 +20,45 @@ class Translator
 
     public function __construct(
         private readonly Client $client,
-        callable $onTranslate,
         private readonly ?MessageFormatter $messageFormatter = null,
         private readonly ?ProfanityHandler $profanityHandler = null,
         array $config = []
     ) {
-        $this->onTranslate = $onTranslate;
         $this->messages = new Messages(
             messageLimit: $config['messageLimit'] ?? Messages::MAX_MESSAGE_LENGTH,
             characterLimit: $config['characterLimit'] ?? Messages::MAX_CHARACTER_LENGTH
         );
     }
 
+    public function onTranslate(callable $callback): self
+    {
+        $this->onTranslate = $callback;
+        return $this;
+    }
+
     public function begin(callable $callback): self
     {
-        $callback(new Delegate(fn (string $message, array $state = []) => $this->translate($message, $state)));
+        if (!isset($this->onTranslate)) {
+            throw new RuntimeException('Missing required translation callback.');
+        }
+
+        $callback(new Delegate(fn (string $message, mixed $state) => $this->translate($message, $state)));
         $this->processMessages();
         return $this;
     }
 
-    private function translate(string $message, array $state = []): self
+    /**
+     * A list of all calls made using the Client-Trace-Id as a key. Each call records the response header of usage
+     * from the Azure Translate service.
+     *
+     * @return array<string, array<int, string>>
+     */
+    public function getMeteredUsage(): array
+    {
+        return $this->client->getMeteredUsage();
+    }
+
+    private function translate(string $message, mixed $state): void
     {
         if (isset($this->messageFormatter)) {
             $message = $this->messageFormatter->toAzure($message);
@@ -50,7 +70,6 @@ class Translator
         }
 
         $this->messages->add($message, $state);
-        return $this;
     }
 
     private function processMessages(): void
@@ -60,13 +79,15 @@ class Translator
             if (!$language instanceof Language) {
                 continue;
             }
-            [, $state] = $this->messages[$position];
-            ($this->onTranslate)(new Translation(
-                $this->filter($translation['text']),
-                $language,
-                $translation['clientTraceId'],
-                $state
-            ));
+            call_user_func(
+                $this->onTranslate,
+                new Translation(
+                    $this->filter($translation['text']),
+                    $language,
+                    $translation['clientTraceId'],
+                    $this->messages[$position]
+                )
+            );
         }
         $this->messages->clear();
     }

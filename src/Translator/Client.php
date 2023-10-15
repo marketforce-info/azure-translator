@@ -5,10 +5,10 @@ namespace MarketforceInfo\AzureTranslator\Translator;
 
 use Generator;
 use JsonException;
+use MarketforceInfo\AzureTranslator\Exceptions\ClientException;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
-use Psr\Http\Message\StreamFactoryInterface;
 
 class Client
 {
@@ -20,10 +20,11 @@ class Client
     /** @var callable|null  */
     private $traceIdCallback;
 
+    private array $meteredUsage = [];
+
     public function __construct(
         private readonly ClientInterface $client,
-        private readonly RequestInterface $baseRequest,
-        private readonly StreamFactoryInterface $streamFactory,
+        private readonly RequestFactory $requestFactory,
         callable $traceIdCallback = null,
     ) {
         $this->traceIdCallback = $traceIdCallback;
@@ -36,25 +37,39 @@ class Client
      */
     public function translate(Messages $messages): Generator
     {
-        $jsonContent = json_encode($messages, JSON_THROW_ON_ERROR);
-        $request = $this->baseRequest
-            ->withHeader('X-ClientTraceId', $clientTraceId = $this->createClientTraceId())
-            ->withHeader('Content-Length', (string)strlen($jsonContent))
-            ->withBody($this->streamFactory->createStream($jsonContent));
+        $clientTraceId = $this->createClientTraceId();
+        $request = $this->requestFactory->create($messages, $clientTraceId);
+        $messages->clearSources();
 
-        $results = json_decode(
-            (string)$this->client->sendRequest($request)->getBody(),
-            true,
-            512,
-            JSON_THROW_ON_ERROR
-        );
-
+        $results = $this->transfer($request);
         foreach ($results as $position => $result) {
             foreach ($result['translations'] as $languageTranslation) {
                 $languageTranslation['clientTraceId'] = $clientTraceId;
                 yield $position => $languageTranslation;
             }
         }
+    }
+
+    public function getMeteredUsage(): array
+    {
+        return $this->meteredUsage;
+    }
+
+    private function transfer(RequestInterface $request): array
+    {
+        $response = $this->client->sendRequest($request);
+        if ($response->getStatusCode() !== 200) {
+            throw ClientException::create($request, $response);
+        }
+
+        $clientTraceId = $request->getHeader('X-ClientTraceId')[0] ?? 'unknown';
+        $this->meteredUsage[$clientTraceId] = $response->getHeader('X-Metered-Usage');
+        return json_decode(
+            (string)$response->getBody()->getContents(),
+            true,
+            512,
+            JSON_THROW_ON_ERROR
+        );
     }
 
     private function createClientTraceId(): string

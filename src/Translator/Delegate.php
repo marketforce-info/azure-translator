@@ -9,7 +9,7 @@ class Delegate
     {
     }
 
-    public function translate(string $message, array $state = []): self
+    public function translate(string $message, mixed $state = null): self
     {
         ($this->translator)($message, $state);
         return $this;

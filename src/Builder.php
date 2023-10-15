@@ -4,14 +4,13 @@ declare(strict_types=1);
 namespace MarketforceInfo\AzureTranslator;
 
 use MarketforceInfo\AzureTranslator\Exceptions\RuntimeException;
-use MarketforceInfo\AzureTranslator\MessageFormatter\BasicFormatter;
 use MarketforceInfo\AzureTranslator\MessageFormatter\MessageFormatter;
 use MarketforceInfo\AzureTranslator\Translator\Client;
 use MarketforceInfo\AzureTranslator\Translator\Language;
 use MarketforceInfo\AzureTranslator\Translator\ProfanityHandler;
+use MarketforceInfo\AzureTranslator\Translator\RequestFactory;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
-use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 
 class Builder
@@ -20,49 +19,12 @@ class Builder
     private ClientInterface $client;
     private RequestFactoryInterface $requestFactory;
     private StreamFactoryInterface $streamFactory;
-    private array|null $authentication;
     private Language $fromLanguage = Language::english;
     private array $toLanguages;
-    private string $subscriptionRegion;
     private MessageFormatter $formatter;
     /** @var callable */
-    private $translateCallback;
-    /** @var callable */
     private $traceIdCallback;
-    private array $config = [];
-
-    /**
-     * Simplest way to create a translator.
-     */
-    public static function createBasic(string $subscriptionKey, array $languages, callable $translateCallback): Translator
-    {
-        return (new self())
-            ->withSubscriptionKey($subscriptionKey)
-            ->withLanguages($languages)
-            ->withTranslateCallback($translateCallback)
-            ->create();
-    }
-
-    /**
-     * Create a translator with message formatting. If a message formatter is not provided, a basic formatter will be
-     * used. This will handle curly braces in the message.
-     */
-    public static function createWithMessageFormat(
-        string $subscriptionKey,
-        array $languages,
-        callable $translateCallback,
-        MessageFormatter $formatter = null
-    ): Translator {
-        if (!$formatter) {
-            $formatter = new BasicFormatter();
-        }
-        return (new self())
-            ->withSubscriptionKey($subscriptionKey)
-            ->withLanguages($languages)
-            ->withTranslateCallback($translateCallback)
-            ->withMessageFormatter($formatter)
-            ->create();
-    }
+    private array $requestConfig = [];
 
     /**
      * Set the base URL to use. By default, this is the global endpoint.
@@ -115,7 +77,7 @@ class Builder
      */
     public function withSubscriptionKey(string $value): self
     {
-        $this->authentication = ['Ocp-Apim-Subscription-Key', $value];
+        $this->requestConfig['authentication'] = ['Ocp-Apim-Subscription-Key', $value];
         return $this;
     }
 
@@ -124,7 +86,7 @@ class Builder
      */
     public function withBearerToken(string $value): self
     {
-        $this->authentication = ['Authorization', 'Bearer: ' . $value];
+        $this->requestConfig['authentication'] = ['Authorization', 'Bearer: ' . $value];
         return $this;
     }
 
@@ -133,7 +95,16 @@ class Builder
      */
     public function withSubscriptionRegion(string $value): self
     {
-        $this->subscriptionRegion = $value;
+        $this->requestConfig['subscription_region'] = $value;
+        return $this;
+    }
+
+    /**
+     * Set the resource ID.
+     */
+    public function withResourceId(string $value): self
+    {
+        $this->requestConfig['resource_id'] = $value;
         return $this;
     }
 
@@ -143,15 +114,6 @@ class Builder
     public function withMessageFormatter(MessageFormatter $formatter): self
     {
         $this->formatter = $formatter;
-        return $this;
-    }
-
-    /**
-     * Sets callback to handle the translation. Required.
-     */
-    public function withTranslateCallback(callable $callback): self
-    {
-        $this->translateCallback = $callback;
         return $this;
     }
 
@@ -169,7 +131,7 @@ class Builder
      */
     public function withoutProfanityHandling(): self
     {
-        unset($this->config['profanity_handling']);
+        unset($this->requestConfig['profanity_handling']);
         return $this;
     }
 
@@ -178,7 +140,7 @@ class Builder
      */
     public function withProfanityDeleted(): self
     {
-        $this->config['profanity_handling'] = [
+        $this->requestConfig['profanity_handling'] = [
             'action' => ProfanityHandler::ACTION_DELETED,
             'marker' => null,
         ];
@@ -191,7 +153,7 @@ class Builder
      */
     public function withProfanityMarked(callable $handler = null): self
     {
-        $this->config['profanity_handling'] = [
+        $this->requestConfig['profanity_handling'] = [
             'action' => ProfanityHandler::ACTION_MARKED,
             'marker' => $handler,
         ];
@@ -221,55 +183,19 @@ class Builder
         return new Translator(
             new Client(
                 $this->client,
-                $this->baseRequest(),
-                $this->streamFactory,
+                new RequestFactory(
+                    $this->requestFactory,
+                    $this->streamFactory,
+                    $this->baseUrl,
+                    $this->fromLanguage,
+                    $this->toLanguages,
+                    $this->requestConfig
+                ),
                 $this->traceIdCallback ?? null
             ),
-            $this->translateCallback,
             $this->formatter ?? null,
-            $this->profanityHandler ?? null,
+            $this->profanityHandler(),
         );
-    }
-
-    private function baseRequest(): RequestInterface
-    {
-        $request = $this->requestFactory
-            ->createRequest('GET', $this->baseUrl)
-            ->withHeader('Content-Type', 'application/json');
-
-        $params = [
-            'api-version' => '3.0',
-            'from' => $this->fromLanguage->value,
-            'textType' => 'html',
-            'profanityAction' => 'NoAction',
-        ];
-        if (isset($this->config['profanity_handling'])) {
-            $params['profanityAction'] = $this->config['profanity_handling']['action'];
-            if ($this->config['profanity_handling']['action'] === ProfanityHandler::ACTION_MARKED) {
-                $params['profanityMarker'] = (is_callable($this->config['profanity_handling']['marker']))
-                    ? ProfanityHandler::MARKER_TAG
-                    : ProfanityHandler::MARKER_ASTERISK;
-            }
-        }
-
-        $uri = $request->getUri();
-        $request = $request->withUri(
-            $uri->withScheme('https')
-                ->withPath('/translate')
-                ->withQuery(http_build_query($params) . '&' . Language::asQueryParam($this->toLanguages))
-        );
-
-        if (isset($this->authentication)) {
-            $request = $request->withHeader(...$this->authentication);
-        }
-        if (isset($this->subscriptionRegion)) {
-            $request = $request->withHeader('Ocp-Apim-Subscription-Region', $this->subscriptionRegion);
-        }
-        if (isset($this->resourceId)) {
-            $request = $request->withHeader('Ocp-Apim-ResourceId', $this->resourceId);
-        }
-
-        return $request;
     }
 
     private function verifyRequired(): void
@@ -286,8 +212,17 @@ class Builder
         if (!isset($this->toLanguages)) {
             throw new RuntimeException('Languages must be set.');
         }
-        if (!isset($this->translateCallback)) {
-            throw new RuntimeException('Translate callback must be set.');
+    }
+
+    private function profanityHandler(): ?ProfanityHandler
+    {
+        if (!isset($this->requestConfig['profanity_handling'])) {
+            return null;
         }
+
+        return new ProfanityHandler(
+            $this->requestConfig['profanity_handling']['action'],
+            $this->requestConfig['profanity_handling']['marker']
+        );
     }
 }

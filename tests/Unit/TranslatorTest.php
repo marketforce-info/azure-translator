@@ -33,11 +33,12 @@ class TranslatorTest extends TestCase
             ->method('translate')
             ->willReturnCallback(fn () => yield from $expected);
 
-        $translator = new Translator($this->client, function (Translator\Translation $translation) use ($expected) {
-            $this->assertEquals($expected[0]['text'], $translation->message);
-            $this->assertSame(Translator\Language::french, $translation->language);
-        });
-        $translator->begin(fn (Translator\Delegate $translator) => $translator->translate('Hello'));
+        (new Translator($this->client))
+            ->onTranslate(function (Translator\Translation $translation) use ($expected) {
+                $this->assertEquals($expected[0]['text'], $translation->message);
+                $this->assertSame(Translator\Language::french, $translation->language);
+            })
+            ->begin(fn (Translator\Delegate $translator) => $translator->translate('Hello'));
     }
 
     public function testOnHttpClientError()
@@ -49,8 +50,9 @@ class TranslatorTest extends TestCase
             ->method('translate')
             ->willThrowException($this->createMock(ClientExceptionInterface::class));
 
-        $translator = new Translator($this->client, function (Translator\Translation $translation) {});
-        $translator->begin(fn (Translator\Delegate $translator) => $translator->translate('Hello'));
+        (new Translator($this->client))
+            ->onTranslate(function (Translator\Translation $translation) {})
+            ->begin(fn (Translator\Delegate $translator) => $translator->translate('Hello'));
     }
 
     public function testInvalidCharacterLimit()
@@ -60,8 +62,9 @@ class TranslatorTest extends TestCase
 
         $expectedLimit = 10;
         $config = ['characterLimit' => $expectedLimit];
-        $translator = new Translator($this->client, function (Translator\Translation $translation) {}, config: $config);
-        $translator->begin(fn (Translator\Delegate $translator) =>
-            $translator->translate(str_pad('', $expectedLimit + 1, 'a')));
+        (new Translator($this->client, config: $config))
+            ->onTranslate(function (Translator\Translation $translation) {})
+            ->begin(fn (Translator\Delegate $translator) =>
+                $translator->translate(str_pad('', $expectedLimit + 1, 'a')));
     }
 }
