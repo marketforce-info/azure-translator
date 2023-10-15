@@ -24,24 +24,25 @@ $ composer require marketforce-info/azure-translator
 ## Usage
 
 ```php
-use \MarketforceInfo\AzureTranslator\Builder;
-use \MarketforceInfo\AzureTranslator\Translator\Delegate;
-use \MarketforceInfo\AzureTranslator\Translator\Language;
-use \MarketforceInfo\AzureTranslator\Translator\Translation;
+use GuzzleHttp\Client as GuzzleClient;
+use GuzzleHttp\Psr7\HttpFactory as GuzzleFactory;
+use MarketforceInfo\AzureTranslator\Translator;
 
-$translator = Builder::createBasic(
-    '<subscription-key>',
-    [Language::french, Language::italian],
-    static function (Translation $translation) {
-        // do something with the message
-    }
+$factory = new GuzzleFactory();
+$client = new Translator\Client(
+    new GuzzleClient(),
+    new Translator\RequestFactory($factory, $factory, [Translator\Language::french])
 );
 
-$translator->begin(static function (Delegate $translator) use ($messages) {
-    foreach ($messages as $message) {
-        $translator->translate($message);
-    }
-});
+$translator = new Translator($client);
+$translator->onTranslate(static function (Translator\Translation $translation) {
+        // do something with the message
+    })
+    ->begin(static function (Translator\Delegate $translator) use ($messages) {
+        foreach ($messages as $message) {
+            $translator->translate($message);
+        }
+    });
 ```
 
 More in depth example of using the `Builder` class.
@@ -49,38 +50,22 @@ More in depth example of using the `Builder` class.
 ```php
 use \MarketforceInfo\AzureTranslator\Builder;
 use \MarketforceInfo\AzureTranslator\MessageFormatter\BasicFormatter;
-use \MarketforceInfo\AzureTranslator\Translator\Client;
-use \MarketforceInfo\AzureTranslator\Translator\Language;
-use \MarketforceInfo\AzureTranslator\Translator\Translation;
+use \MarketforceInfo\AzureTranslator\Translator;
 
+$factory = new GuzzleFactory();
 $translator = (new Builder())
-    ->withBaseUrl(Client::BASE_URL_US)
-    ->withLanguages([Language::arabic], Language::english)
+    ->withBaseUrl(Translator\RequestFactory::BASE_URL_US)
+    ->withHttp(new GuzzleClient(), $factory, $factory)
+    ->withLanguages([Translator\Language::arabic], Translator\Language::french)
     ->withBearerToken('<bearer-token>')
     ->withMessageFormatter(new BasicFormatter('[', ']'))
     ->withTraceIdCallback(fn () => 'xxxx-XXXX-xxxx-XXXX-xxxx')
     ->when(
         $_ENV['delete_profanity'] === true,
         fn (Builder $builder) => $builder->withProfanityDeleted(),
-        fn (Builder $builder) => $builder->withProfanityMarked()
+        fn (Builder $builder) => $builder->withProfanityMarked(static fn (string $word) => '*censored*')
     )
-    ->withTranslateCallback(function (Translation $translation) {
-        // record
-    })
     ->create();
-```
-
-### Translate Request
-
-Batching of the requested messages is handled automatically. The ability to pass messages to be translated is done via
-the `Delegate` class.
-
-```php
-$translator->begin(static function (Delegate $translator) use ($untranslatedMessages) {
-    foreach ($untranslatedMessages as $message) {
-        $translator->translate($message);
-    }
-});
 ```
 
 ### Translated Message
@@ -90,17 +75,17 @@ contains four properties:
 
 `$message` is a string of the translated message.
 
-`$language` is an `Language` enum of the language the message has been translated into.
+`$language` is a `Language` enum of the language the message has been translated into.
 
 `$traceId` is a trace ID used to track requests (see below for more information).
 
-`$state` is an array of user specified data specific to the original untranslated message.
+`$state` is user specified data specific to the original untranslated message.
 
 The state is something that can be optionally set at the point of request (`translate`).
 
 ```php
 foreach ($messages as $messageId => $message) {
-    $translator->translate($message, ['messageId' => $messageId]);
+    $translator->translate($message, ['id' => $messageId]);
 }
 ```
 
@@ -111,7 +96,7 @@ static function (Translation $translation) use ($db) {
     $db->replace(
         table: 'translations',
         where: [
-            'id' => $translation->state['messageId'],
+            'id' => $translation->state['id'],
             'language' => $translation->language->value
         ],
         data: ['message' => $translation->message]
@@ -119,16 +104,29 @@ static function (Translation $translation) use ($db) {
 };
 ```
 
+### Translate Request
+
+Batching of the requested messages is handled automatically. The ability to pass messages to be translated is done via
+the `Delegate` class. The `begin` method can not be called until the `onTranslate` behaviour has been defined.
+
+```php
+$translator->begin(static function (Delegate $translator) use ($untranslatedMessages) {
+    foreach ($untranslatedMessages as $message) {
+        $translator->translate($message);
+    }
+});
+```
+
 ## Features
 
 ### HTTP Client
 
-Specifying a HTTP Client can be done in a number of ways.
+This library relies on three PSR interface implementations to be provided. `ClientInterface` for the HTTP client,
+`RequestFactoryInterface` to create a request and `StreamFactoryInterface` to create the request body. For example,
+in the case of the Guzzle implementation, the request and stream factory are the same implementation.
 
 ```php
-$builder->withClient(\Psr\Http\Client\ClientInterface::class)
-    ->withRequestFactory()
-    ->withStreamFactory();
+$builder->withHttp($client, $requestFactory, $streamFactory);
 ```
 
 #### Providers
@@ -139,7 +137,7 @@ $builder->withClient(\Psr\Http\Client\ClientInterface::class)
 
 ### Authentication
 
-There are two methods of specifying a authentication token.
+There are two methods of specifying an authentication token.
 
 ```php
 $builder->withSubscriptionKey('<subscription-key>');
@@ -195,7 +193,7 @@ $builder->withMessageFormatter(new IcuFormatter());
 The process of creating a representation to send to the translation service produces a verbose output which
 could have a detrimental effect on the character count and subsequently the billing by the Azure service. Additionally,
 the ICU parsing attempts to achieve the best translation outcome by composing variations of the messages when the
-format of a ICU message is `select`, `selectordinal` or `plural`.
+format of a ICU message uses `select`, `selectordinal` or `plural`.
 
 #### Custom Message Format
 
@@ -214,13 +212,13 @@ $builder->withTraceIdCallback(fn () => 'xxxx-XXXX-xxxx-XXXX-xxxx');
 // or
 $builder->withTraceIdCallback([$this, 'traceFunction']);
 // or
-$builder->withTraceIdCallback(fn (\Closure $generatorFn) => $generatorFn);
+$builder->withTraceIdCallback(fn (\Closure $generatorFn) => $generatorFn());
 ```
 
 #### Generator function
 
 As shown, the call back is passed a parameter which allows the use of the internal generator function. This is useful
-in scenarions where it's a trace ID is recorded for every request made.
+in scenarios where a trace ID is recorded for every request made.
 
 ### Handling Profanity
 
@@ -231,13 +229,32 @@ profane phrases are displayed.
 #### Methods available
 
 ```php
-$builder->withoutProfanityHandling();
+$builder->withoutProfanityHandling(); // default
 $builder->withProfanityDeleted();
 $builder->withProfanityMarked(); // words replaced with *
 $builder->withProfanityMarked(static function (string $phrase) {
     return '<span class="profanity">' . str_pad('', mb_strlen($phrase), 'x') . '</span>';
 });
 ```
+
+### Getting Metric Data
+On each request to the translate service, information about the number of characters processed is returned in the
+process. This can be retrieved on completion.
+
+```php
+$translator->getMeteredUsage();
+```
+
+This returns an array of each request made and the data returned.
+
+```json
+{
+    "1234-1234-1234-1234": [
+        "182"
+    ]
+}
+```
+
 ## Contributions
 
 Contributions gratefully accepted in the form issues or PRs.
