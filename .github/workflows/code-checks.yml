@@ -1,0 +1,56 @@
+name: code-checks
+run-name: Code Checks
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+
+concurrency:
+  group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        php: ['8.0', '8.1', '8.2']
+
+    name: PHP ${{ matrix.php }} tests
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v3
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: xdebug
+
+      - name: Cache Composer packages
+        id: composer-cache
+        uses: actions/cache@v2
+        with:
+          path: vendor
+          key: ${{ runner.os }}-php${{ matrix.php }}-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php${{ matrix.php }}-
+
+      - name: Install Dependencies
+        run: composer install --no-progress
+
+      - name: PHP Linting Check
+        uses: overtrue/phplint@8.1
+        with:
+          path: .
+          options: --exclude=vendor
+
+      - name: Easy Coding Standard Check
+        run: vendor/bin/ecs check src -nq
+
+      - name: Run Code Coverage
+        run: vendor/bin/phpunit --coverage-clover=coverage.xml
